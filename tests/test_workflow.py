@@ -4,7 +4,7 @@ from agent.agent import ProposalAgentWorkflow
 
 @pytest.fixture
 def workflow():
-    return ProposalAgentWorkflow()
+    return ProposalAgentWorkflow(allow_fallback=True)
 
 def test_scenario_1_and_default_transcript(workflow):
     """TEST 1: Normal transcript processing with ambiguity."""
@@ -68,3 +68,11 @@ def test_scenario_6_unsupported_service_request(workflow):
     """
     result = workflow.run_workflow(transcript)
     assert len(result.proposal_brief.unsupported_requested_services) > 0 or result.validation.are_services_offered is False
+
+def test_strict_agents_sdk_no_fallback():
+    """Strict E2E test mode: ensures allow_fallback=False raises an error when API is unavailable."""
+    wf = ProposalAgentWorkflow(api_key="invalid-key-for-strict-test", allow_fallback=False)
+    transcript = "Sales Rep: Hello. Prospect: Hi, we need CRM Integration."
+    with pytest.raises(RuntimeError) as exc_info:
+        wf.run_workflow(transcript)
+    assert "OpenAI Agents SDK execution failed" in str(exc_info.value)

@@ -44,9 +44,10 @@ STRICT BUSINESS RULES:
 """
 
 class ProposalAgentWorkflow:
-    def __init__(self, api_key: str = None, model_name: str = None):
+    def __init__(self, api_key: str = None, model_name: str = None, allow_fallback: bool = True):
         self.api_key = api_key or os.getenv("OPENAI_API_KEY", "mock-key-for-offline-tests")
         self.model_name = model_name or os.getenv("OPENAI_MODEL", "gpt-4o")
+        self.allow_fallback = allow_fallback
 
         os.environ["OPENAI_API_KEY"] = self.api_key
 
@@ -76,6 +77,10 @@ TRANSCRIPT:
             analysis: ProposalAnalysis = run_result.final_output
             return analysis, "MODE: OPENAI AGENTS SDK"
         except Exception as e:
+            if not self.allow_fallback:
+                logger.error("Agents SDK execution failed and allow_fallback=False.")
+                raise RuntimeError(f"OpenAI Agents SDK execution failed: {e}") from e
+
             logger.warning(f"Agents SDK execution failed or API quota error ({e}). Entering explicit fallback mode.")
             print(f"\n[⚠️ AGENT RUNTIME NOTICE]: {e}")
             print("[MODE: FALLBACK — OPENAI API UNAVAILABLE (Using local deterministic engine for testing)]")

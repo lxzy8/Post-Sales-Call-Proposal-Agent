@@ -110,7 +110,7 @@ export OPENAI_MODEL="gpt-4o"  # Optional, defaults to gpt-4o
 python3 run.py
 ```
 
-### Run Test Suite (11/11 Verified Passed)
+### Run Test Suite (12/12 Verified Passed)
 ```bash
 PYTHONPATH=. python3 -m pytest
 ```
@@ -125,10 +125,10 @@ PYTHONPATH=. python3 -m pytest
 
 ---
 
-## 8. Guardrails & Operational Scenarios (All 6 Verified)
-The workflow undergoes deterministic validation across 6 critical operational scenarios (`tests/test_workflow.py`):
+## 8. Guardrails & Operational Scenarios
+The workflow undergoes deterministic validation across critical operational scenarios (`tests/test_workflow.py`):
 
-| Test Scenario | Scenario Description | Verified Pass / Status |
+| Test Scenario | Scenario Description | Verified Status |
 |---|---|---|
 | **Test 1** | Normal complete sales call | Structured requirements extracted; proposal brief & email generated. (PASSED) |
 | **Test 2** | Missing pricing parameters | Pricing strictly outputs `"Pricing requires manual estimation."` (PASSED) |
@@ -136,6 +136,7 @@ The workflow undergoes deterministic validation across 6 critical operational sc
 | **Test 4** | No matching case study | Agent explicitly reports no matching case study exists without hallucinating one. (PASSED) |
 | **Test 5** | Ambiguous timeline | Timeline flagged as requiring confirmation. (PASSED) |
 | **Test 6** | Unsupported service request | Unsupported service (e.g., custom AI triage or quantum crypto) flagged as not offered. (PASSED) |
+| **Test 7** | Strict Agents SDK Mode | Asserts `allow_fallback=False` raises an error if SDK runtime fails. (PASSED) |
 
 ---
 
