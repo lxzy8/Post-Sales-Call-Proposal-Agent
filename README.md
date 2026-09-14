@@ -86,7 +86,8 @@ By pairing the **OpenAI Agents SDK** structured outputs with **deterministic pro
     ├── 05_validation.png
     ├── 06_proposal_brief.png
     ├── 07_email_draft.png
-    └── 08_human_approval.png
+    ├── 08_human_approval.png
+    └── final_demo.webm
 ```
 
 ---
@@ -150,7 +151,7 @@ NO EXTERNAL EMAIL OR ACTION HAS BEEN AUTOMATICALLY EXECUTED.
 
 ---
 
-## 10. Evidence / Screenshot Mapping (`evidence/`)
+## 10. Evidence / Screenshot & Video Mapping (`evidence/`)
 - `01_input.png`: Real terminal capture of input transcript.
 - `02_agent_execution.png`: Real terminal capture of OpenAI Agents SDK execution mode & trace.
 - `03_requirements.png`: Real terminal capture of structured requirement extraction.
@@ -159,3 +160,4 @@ NO EXTERNAL EMAIL OR ACTION HAS BEEN AUTOMATICALLY EXECUTED.
 - `06_proposal_brief.png`: Real terminal capture of generated proposal brief.
 - `07_email_draft.png`: Real terminal capture of personalized email draft marked `DRAFT — NOT SENT`.
 - `08_human_approval.png`: Real terminal capture of explicit Human Approval Gate.
+- `final_demo.webm`: Recorded terminal workflow video demonstrating pipeline execution.
