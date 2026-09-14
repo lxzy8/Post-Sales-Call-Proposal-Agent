@@ -14,11 +14,12 @@ def _read_data_file(filename: str) -> str:
 
 @function_tool
 def search_business_knowledge(query: str) -> str:
-    """Search through all company profile, services, case studies, and pricing documentation for relevant information.
+    """Search through company profile, services, case studies, and pricing documentation for relevant information.
 
     Args:
         query: Keywords or topic to search across business knowledge base.
     """
+    print(f"  [Agents SDK Runtime -> Tool Invoked]: search_business_knowledge(query='{query}')")
     results = []
     query_lower = query.lower()
     for filepath in glob.glob(os.path.join(DATA_DIR, "*.md")):
@@ -38,10 +39,10 @@ def get_service_details(service_name: str) -> str:
     Args:
         service_name: Name of the service (e.g., 'CRM Integration', 'Lead Capture Automation', 'Website Redesign', 'Web Analytics Implementation').
     """
+    print(f"  [Agents SDK Runtime -> Tool Invoked]: get_service_details(service_name='{service_name}')")
     content = _read_data_file("services.md")
     service_lower = service_name.lower()
 
-    # Check if requested service is unsupported (e.g., custom AI patient triage)
     supported_services = [
         "website redesign",
         "crm integration",
@@ -66,15 +67,14 @@ def get_case_studies(industry_or_topic: str) -> str:
     Args:
         industry_or_topic: Topic, service, or industry to search in case studies (e.g. 'Lead capture', 'Healthcare', 'Consulting').
     """
+    print(f"  [Agents SDK Runtime -> Tool Invoked]: get_case_studies(industry_or_topic='{industry_or_topic}')")
     content = _read_data_file("case_studies.md")
     topic_lower = industry_or_topic.lower()
 
-    # Check if topic/industry has a real matching case study in case_studies.md
-    # Current case studies: Apex Logistics (B2B Consulting, Lead Capture & CRM), Meridian Wealth (Financial, Redesign & Analytics)
     matched = []
-    if "lead capture" in topic_lower or "crm" in topic_lower or "logistics" in topic_lower or "consulting" in topic_lower or "b2b" in topic_lower:
+    if any(k in topic_lower for k in ["lead capture", "crm", "logistics", "consulting", "b2b"]):
         matched.append("Case Study 1: Apex Logistics Consulting (Lead Capture Automation + CRM Integration)")
-    if "analytics" in topic_lower or "redesign" in topic_lower or "wealth" in topic_lower or "financial" in topic_lower:
+    if any(k in topic_lower for k in ["analytics", "redesign", "wealth", "financial"]):
         matched.append("Case Study 2: Meridian Wealth Advisory (Website Redesign + Web Analytics Implementation)")
 
     if not matched:

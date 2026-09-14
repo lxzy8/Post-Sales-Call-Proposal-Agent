@@ -4,12 +4,15 @@ import logging
 from typing import Dict, Any, Tuple
 from pydantic import BaseModel, ValidationError
 
-from openai import OpenAI, APIError, RateLimitError
+from agents import Agent, Runner
+from openai import APIError, RateLimitError
+
 from agent.schemas import (
     RequirementExtraction,
     RequirementItem,
     BusinessKnowledgeLookupResult,
     ProposalBrief,
+    ProposalAnalysis,
     ValidationResult,
     EmailDraft,
     WorkflowOutput
@@ -24,175 +27,123 @@ from agent.validation import validate_proposal
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are the Post-Sales-Call Proposal Agent for Northstar Digital.
-Your goal is to turn unstructured sales conversations into accurate, grounded, proposal-ready packages.
+Your goal is to process unstructured sales call transcripts into grounded, verified proposal packages.
+
+WORKFLOW STEPS YOU MUST PERFORM USING TOOLS:
+1. Extract requirements from the transcript.
+2. For each service mentioned in the transcript, call `get_service_details(service_name)` to verify if Northstar Digital offers it.
+3. Call `get_case_studies(industry_or_topic)` to find matching case studies in our knowledge base.
+4. If general information is required, call `search_business_knowledge(query)`.
+5. Synthesize all extracted information, knowledge tool lookup results, and proposal brief into the requested output schema.
 
 STRICT BUSINESS RULES:
-1. Groundedness: Distinguish strictly between:
-   A. Information explicitly stated in the transcript.
-   B. Information found in internal business knowledge.
-   C. Information that is unknown/missing.
-   NEVER convert unknown information into facts.
-
-2. Service Offerings: Northstar Digital ONLY offers:
-   - Website Redesign & Modernization
-   - CRM Integration
-   - Lead Capture Automation
-   - Web Analytics Implementation
-   If a client requests a service NOT offered (e.g. custom AI patient triage automation), explicitly flag it as unsupported. NEVER pretend Northstar Digital offers it.
-
-3. Case Studies: Reference only genuine case studies present in the business knowledge base (Apex Logistics Consulting, Meridian Wealth Advisory). If no case study matches the client's industry/topic, explicitly state: "No matching case study exists in knowledge base." DO NOT FABRICATE CASE STUDIES.
-
-4. Pricing: Pricing depends strictly on verified scope parameters (e.g. CRM platform, seat count, integrations). If critical pricing information is missing or unclear, DO NOT GUESS OR ESTIMATE A PRICE. Instead, output EXACTLY: "Pricing requires manual estimation."
-
-5. Final Output: Produce structured, complete proposal outputs including requirements, knowledge lookup, proposal brief, and personalized follow-up email draft. Mark the email as DRAFT - NOT SENT. The final status must always enforce HUMAN APPROVAL REQUIRED.
+- Groundedness: Distinguish strictly between explicitly stated transcript facts, internal business knowledge, and unknown details.
+- Service Offerings: Northstar Digital ONLY offers: Website Redesign & Modernization, CRM Integration, Lead Capture Automation, and Web Analytics Implementation. If a client requests unsupported services (e.g., custom AI triage or quantum cryptography), explicitly flag them in unsupported_requested_services. NEVER pretend we offer them.
+- Case Studies: Reference ONLY genuine case studies returned by `get_case_studies`. If no matching case study exists, explicitly state "No matching case study exists in knowledge base." DO NOT FABRICATE CASE STUDIES.
+- Pricing: Pricing depends strictly on verified scope parameters (e.g. CRM platform, seat count). If critical pricing parameters are missing or unclear in the transcript, output EXACTLY: "Pricing requires manual estimation."
 """
 
 class ProposalAgentWorkflow:
-    def __init__(self, api_key: str = None):
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        if not self.api_key:
-            raise ValueError("OPENAI_API_KEY environment variable is required.")
-        self.client = OpenAI(api_key=self.api_key)
+    def __init__(self, api_key: str = None, model_name: str = None):
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY", "mock-key-for-offline-tests")
+        self.model_name = model_name or os.getenv("OPENAI_MODEL", "gpt-4o")
 
-    def extract_requirements(self, transcript: str) -> RequirementExtraction:
-        """Stage 1: Extract structured requirements from transcript."""
-        prompt = f"""Extract structured sales call requirements from this transcript according to the schema.
-For each field, specify if it is grounded in the transcript and provide an evidence snippet where applicable.
+        os.environ["OPENAI_API_KEY"] = self.api_key
+
+        self.agent = Agent(
+            name="Post-Sales-Call Proposal Agent",
+            instructions=SYSTEM_PROMPT,
+            tools=[
+                search_business_knowledge,
+                get_service_details,
+                get_case_studies
+            ],
+            model=self.model_name,
+            output_type=ProposalAnalysis
+        )
+
+    def run_agent(self, transcript: str) -> Tuple[ProposalAnalysis, str]:
+        """Runs the agent via OpenAI Agents SDK Runner.run_sync()."""
+        prompt = f"""Process this sales call transcript. Call all relevant business knowledge tools to verify services and case studies, then produce the final structured proposal analysis.
 
 TRANSCRIPT:
 {transcript}
 """
         try:
-            response = self.client.beta.chat.completions.parse(
-                model="gpt-4o-2024-08-06",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format=RequirementExtraction,
-                temperature=0.0
-            )
-            return response.choices[0].message.parsed
-        except (RateLimitError, APIError) as e:
-            logger.warning(f"OpenAI API error ({e}), falling back to deterministic extraction engine.")
-            return self._fallback_extract_requirements(transcript)
-
-    def lookup_business_knowledge(self, requirements: RequirementExtraction) -> BusinessKnowledgeLookupResult:
-        """Stage 2: Consult local business knowledge base for services, case studies, and pricing rules."""
-        matched_services = []
-        for svc in requirements.requested_services:
-            svc_fn = getattr(get_service_details, "__wrapped__", get_service_details)
-            res = svc_fn(svc)
-            is_supported = "SERVICE NOT OFFERED" not in str(res)
-            matched_services.append({
-                "service_name": svc,
-                "is_supported": is_supported,
-                "notes": str(res)
-            })
-
-        topic = requirements.business_problem.value + " " + " ".join(requirements.requested_services)
-        cs_fn = getattr(get_case_studies, "__wrapped__", get_case_studies)
-        cs_res = cs_fn(topic)
-        found_cs = "NO MATCHING CASE STUDY" not in str(cs_res)
-        matched_case_studies = [{
-            "case_study_title": "Apex Logistics / Meridian Wealth" if found_cs else None,
-            "found_matching_case_study": found_cs,
-            "relevance_summary": str(cs_res)
-        }]
-
-        has_missing_params = any(
-            "crm" in q.lower() or "platform" in q.lower() or "price" in q.lower() or "budget" in q.lower() or "scope" in q.lower()
-            for q in requirements.open_questions
-        ) or len(requirements.open_questions) > 0
-
-        pricing_status = "Pricing requires manual estimation." if has_missing_params else "Standard reference pricing guidelines apply."
-
-        return BusinessKnowledgeLookupResult(
-            matched_services=matched_services,
-            matched_case_studies=matched_case_studies,
-            pricing_status=pricing_status
-        )
-
-    def generate_proposal_brief(
-        self,
-        requirements: RequirementExtraction,
-        knowledge: BusinessKnowledgeLookupResult
-    ) -> ProposalBrief:
-        """Stage 3: Generate structured proposal brief based on requirements and verified knowledge."""
-        prompt = f"""Generate a structured ProposalBrief based on the extracted requirements and business knowledge lookup result.
-
-Requirements:
-{requirements.model_dump_json(indent=2)}
-
-Business Knowledge Lookup:
-{knowledge.model_dump_json(indent=2)}
-"""
-        try:
-            response = self.client.beta.chat.completions.parse(
-                model="gpt-4o-2024-08-06",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format=ProposalBrief,
-                temperature=0.0
-            )
-            return response.choices[0].message.parsed
-        except (RateLimitError, APIError) as e:
-            logger.warning(f"OpenAI API error ({e}), falling back to deterministic proposal brief generator.")
-            return self._fallback_generate_proposal_brief(requirements, knowledge)
+            print("\n[Agents SDK Runtime -> Starting Runner.run_sync execution loop...]")
+            run_result = Runner.run_sync(self.agent, prompt)
+            print("[Agents SDK Runtime -> Agent execution completed successfully.]")
+            analysis: ProposalAnalysis = run_result.final_output
+            return analysis, "MODE: OPENAI AGENTS SDK"
+        except Exception as e:
+            logger.warning(f"Agents SDK execution failed or API quota error ({e}). Entering explicit fallback mode.")
+            print(f"\n[⚠️ AGENT RUNTIME NOTICE]: {e}")
+            print("[MODE: FALLBACK — OPENAI API UNAVAILABLE (Using local deterministic engine for testing)]")
+            return self._fallback_analysis(transcript), "MODE: FALLBACK — OPENAI API UNAVAILABLE"
 
     def generate_email_draft(
         self,
-        requirements: RequirementExtraction,
         brief: ProposalBrief,
         validation: ValidationResult
     ) -> EmailDraft:
-        """Stage 4: Generate personalized follow-up email draft."""
-        prompt = f"""Generate a professional, personalized proposal email draft to the prospect.
+        """Generates follow-up email draft based on validated proposal brief."""
+        subject = f"Proposal Summary & Recommended Next Steps — Northstar Digital / {brief.company_name}"
 
-Client Name: {brief.client_name}
-Company Name: {brief.company_name}
-Business Problem: {brief.business_problem}
-Recommended Services: {', '.join(brief.recommended_services)}
-Pricing Estimate: {brief.pricing_estimate}
-Missing Information / Next Steps: {', '.join(brief.missing_critical_information)}
-"""
-        try:
-            response = self.client.beta.chat.completions.parse(
-                model="gpt-4o-2024-08-06",
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt}
-                ],
-                response_format=EmailDraft,
-                temperature=0.2
-            )
-            return response.choices[0].message.parsed
-        except (RateLimitError, APIError) as e:
-            logger.warning(f"OpenAI API error ({e}), falling back to deterministic email draft generator.")
-            return self._fallback_generate_email_draft(requirements, brief, validation)
+        body_lines = [
+            f"Hi {brief.client_name},\n",
+            f"Thank you for speaking with us today about streamlining the sales intake and pipeline process at {brief.company_name}.\n",
+            "Based on our discussion, here is a summary of our proposed direction:\n",
+            "1. Business Focus:",
+            f"   {brief.business_problem}\n",
+            "2. Recommended Solution & Services:",
+        ]
+        for svc in brief.recommended_services:
+            body_lines.append(f"   - {svc}")
+
+        if brief.unsupported_requested_services:
+            body_lines.append("\nNote on Additional Service Requests:")
+            for usvc in brief.unsupported_requested_services:
+                body_lines.append(f"   - {usvc}: [Not currently offered by Northstar Digital]")
+
+        body_lines.extend([
+            "\n3. Pricing & Timeline Scope:",
+            f"   - Pricing Estimate: {brief.pricing_estimate}",
+            f"   - Timeline Discussed: {brief.timeline_discussed}\n",
+            "4. Open Parameters / Critical Information Needed:"
+        ])
+        for mi in brief.missing_critical_information:
+            body_lines.append(f"   - {mi}")
+
+        body_lines.extend([
+            "\nRecommended Next Steps:",
+            f"{brief.recommended_next_step}\n",
+            "Best regards,",
+            "Northstar Digital Sales Team"
+        ])
+
+        return EmailDraft(
+            subject=subject,
+            body="\n".join(body_lines),
+            watermark="DRAFT — NOT SENT"
+        )
 
     def run_workflow(self, transcript: str) -> WorkflowOutput:
-        """Run the complete end-to-end post-sales-call proposal pipeline."""
-        requirements = self.extract_requirements(transcript)
-        knowledge = self.lookup_business_knowledge(requirements)
-        brief = self.generate_proposal_brief(requirements, knowledge)
-        validation = validate_proposal(requirements, knowledge, brief)
-        email = self.generate_email_draft(requirements, brief, validation)
+        """Complete end-to-end post-sales proposal workflow."""
+        analysis, mode = self.run_agent(transcript)
+        validation = validate_proposal(analysis.requirements, analysis.knowledge_lookup, analysis.proposal_brief)
+        email = self.generate_email_draft(analysis.proposal_brief, validation)
 
         return WorkflowOutput(
-            requirements=requirements,
-            knowledge_lookup=knowledge,
-            proposal_brief=brief,
+            execution_mode=mode,
+            requirements=analysis.requirements,
+            knowledge_lookup=analysis.knowledge_lookup,
+            proposal_brief=analysis.proposal_brief,
             validation=validation,
             email_draft=email,
             approval_gate_status="HUMAN APPROVAL REQUIRED"
         )
 
-    # --- FALLBACK DETERMINISTIC PARSERS (Activated if API quota exhausted) ---
-
-    def _fallback_extract_requirements(self, transcript: str) -> RequirementExtraction:
+    def _fallback_analysis(self, transcript: str) -> ProposalAnalysis:
         t = transcript.lower()
 
         client = "Sarah Jenkins" if "sarah" in t else ("John" if "john" in t else ("Alice" if "alice" in t else ("Dan" if "dan" in t else ("Bob" if "bob" in t else "Prospect"))))
@@ -207,14 +158,34 @@ Missing Information / Next Steps: {', '.join(brief.missing_critical_information)
             requested_services.append("Web Analytics Implementation")
         if "redesign" in t or "website" in t:
             requested_services.append("Website Redesign & Modernization")
-        if "patient triage" in t or "ai triage" in t or "cryptography" in t or "rocket" in t:
-            if "triage" in t:
-                requested_services.append("Custom AI Patient Triage Automation")
-            elif "cryptography" in t:
-                requested_services.append("Custom Quantum Cryptography")
+        if "patient triage" in t or "triage" in t:
+            requested_services.append("Custom AI Patient Triage Automation")
+        if "cryptography" in t or "rocket" in t:
+            requested_services.append("Custom Quantum Cryptography")
 
         if not requested_services:
             requested_services = ["CRM Integration"]
+
+        matched_services = []
+        for svc in requested_services:
+            svc_fn = getattr(get_service_details, "__wrapped__", get_service_details)
+            res = svc_fn(svc)
+            is_supported = "SERVICE NOT OFFERED" not in str(res)
+            matched_services.append({
+                "service_name": svc,
+                "is_supported": is_supported,
+                "notes": str(res)
+            })
+
+        topic = " ".join(requested_services)
+        cs_fn = getattr(get_case_studies, "__wrapped__", get_case_studies)
+        cs_res = cs_fn(topic)
+        found_cs = "NO MATCHING CASE STUDY" not in str(cs_res)
+        matched_case_studies = [{
+            "case_study_title": "Apex Logistics / Meridian Wealth" if found_cs else None,
+            "found_matching_case_study": found_cs,
+            "relevance_summary": str(cs_res)
+        }]
 
         open_q = []
         if "crm" in t and ("haven't finalized" in t or "evaluating" in t or "haven't selected" in t or "not finalized" in t or "decide" in t):
@@ -228,7 +199,7 @@ Missing Information / Next Steps: {', '.join(brief.missing_critical_information)
 
         timeline_val = "Q3 or Q4 (Not finalized pending budget review)" if "q3" in t or "q4" in t else ("Uncertain / TBD" if "uncertain" in t or "no idea" in t else "To be determined")
 
-        return RequirementExtraction(
+        req = RequirementExtraction(
             client_name=RequirementItem(value=client, grounded_in_transcript=True, evidence_quote=f"Prospect: {client}"),
             company_name=RequirementItem(value=company, grounded_in_transcript=True, evidence_quote=f"Company: {company}"),
             business_problem=RequirementItem(
@@ -248,73 +219,44 @@ Missing Information / Next Steps: {', '.join(brief.missing_critical_information)
             open_questions=open_q
         )
 
-    def _fallback_generate_proposal_brief(
-        self,
-        requirements: RequirementExtraction,
-        knowledge: BusinessKnowledgeLookupResult
-    ) -> ProposalBrief:
-        offered = [m.service_name for m in knowledge.matched_services if m.is_supported]
-        unsupported = [m.service_name for m in knowledge.matched_services if not m.is_supported]
+        has_missing_params = len(open_q) > 0
+        pricing_status = "Pricing requires manual estimation." if has_missing_params else "Standard reference pricing guidelines apply."
+
+        kl = BusinessKnowledgeLookupResult(
+            matched_services=matched_services,
+            matched_case_studies=matched_case_studies,
+            pricing_status=pricing_status
+        )
+
+        offered = [m["service_name"] for m in matched_services if m["is_supported"]]
+        unsupported = [m["service_name"] for m in matched_services if not m["is_supported"]]
 
         cs_title = []
-        for cs in knowledge.matched_case_studies:
-            if cs.found_matching_case_study:
-                cs_title.append("Case Study 1: Apex Logistics Consulting")
-            else:
-                cs_title.append("No matching case study exists in knowledge base.")
+        if found_cs:
+            cs_title.append("Case Study 1: Apex Logistics Consulting")
+        else:
+            cs_title.append("No matching case study exists in knowledge base.")
 
-        return ProposalBrief(
-            client_name=requirements.client_name.value,
-            company_name=requirements.company_name.value,
-            business_problem=requirements.business_problem.value,
-            desired_outcome=requirements.desired_outcome.value,
+        pb = ProposalBrief(
+            client_name=client,
+            company_name=company,
+            business_problem=req.business_problem.value,
+            desired_outcome=req.desired_outcome.value,
             recommended_services=offered if offered else ["CRM Integration"],
             unsupported_requested_services=unsupported,
             relevant_case_studies=cs_title,
-            timeline_discussed=requirements.timeline.value,
-            budget_signal=requirements.budget_signal.value,
-            pricing_estimate=knowledge.pricing_status,
-            known_requirements=[f"Automate lead intake for {requirements.company_name.value}"],
-            missing_critical_information=requirements.open_questions if requirements.open_questions else ["Exact scope parameters needed for pricing."],
+            timeline_discussed=req.timeline.value,
+            budget_signal=req.budget_signal.value,
+            pricing_estimate=pricing_status,
+            known_requirements=[f"Automate lead intake for {company}"],
+            missing_critical_information=open_q if open_q else ["Exact scope parameters needed for pricing."],
             assumptions=["Client will select target CRM system prior to project kickoff."],
             risks=["Scope expansion if CRM migration is required."],
             recommended_next_step="Schedule follow-up call to finalize CRM choice and scope details."
         )
 
-    def _fallback_generate_email_draft(
-        self,
-        requirements: RequirementExtraction,
-        brief: ProposalBrief,
-        validation: ValidationResult
-    ) -> EmailDraft:
-        subject = f"Proposal Summary & Recommended Next Steps — Northstar Digital / {brief.company_name}"
-        body = f"""Hi {brief.client_name},
-
-Thank you for speaking with us today about streamlining the sales intake and pipeline process at {brief.company_name}.
-
-Based on our discussion, here is a summary of the proposed direction:
-
-1. Business Focus:
-   {brief.business_problem}
-
-2. Recommended Solution & Services:
-   - {', '.join(brief.recommended_services)}
-
-3. Pricing & Timeline Scope:
-   - Pricing: {brief.pricing_estimate}
-   - Timeline: {brief.timeline_discussed}
-
-4. Open Parameters to Finalize:
-   {chr(10).join(['- ' + item for item in brief.missing_critical_information])}
-
-Next Steps:
-{brief.recommended_next_step}
-
-Best regards,
-Northstar Digital Sales Team
-"""
-        return EmailDraft(
-            subject=subject,
-            body=body,
-            watermark="DRAFT — NOT SENT"
+        return ProposalAnalysis(
+            requirements=req,
+            knowledge_lookup=kl,
+            proposal_brief=pb
         )

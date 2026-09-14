@@ -27,14 +27,18 @@ def main():
         transcript = f.read()
 
     print_banner("1. Sales Call Transcript Input")
-    print(transcript[:500] + "...\n[Transcript truncated for display]")
+    print(transcript[:400] + "...\n[Transcript truncated for display]")
+
+    model_name = os.getenv("OPENAI_MODEL", "gpt-4o")
+    print(f"\nInitializing Post-Sales-Call Proposal Agent (Model: {model_name})...")
 
     workflow = ProposalAgentWorkflow()
-
-    print("\n[Running Post-Sales-Call Proposal Agent Workflow...]")
     output = workflow.run_workflow(transcript)
 
-    print_banner("2. Requirement Extraction")
+    print_banner("2. Execution Mode & Runtime Trace")
+    print(f"Execution Engine Mode: {output.execution_mode}")
+
+    print_banner("3. Requirement Extraction")
     req = output.requirements
     print(f"• Client Name: {req.client_name.value} (Grounded: {req.client_name.grounded_in_transcript})")
     print(f"• Company Name: {req.company_name.value} (Grounded: {req.company_name.grounded_in_transcript})")
@@ -48,7 +52,7 @@ def main():
     for q in req.open_questions:
         print(f"   - {q}")
 
-    print_banner("3. Business Knowledge Lookup")
+    print_banner("4. Business Knowledge Lookup")
     kl = output.knowledge_lookup
     print("• Matched Services:")
     for ms in kl.matched_services:
@@ -60,7 +64,7 @@ def main():
         print(f"     Summary: {cs.relevance_summary[:150]}...")
     print(f"\n• Pricing Status Rule: {kl.pricing_status}")
 
-    print_banner("4. Proposal Brief")
+    print_banner("5. Proposal Brief")
     pb = output.proposal_brief
     print(f"Client: {pb.client_name} ({pb.company_name})")
     print(f"Business Problem: {pb.business_problem}")
@@ -86,7 +90,7 @@ def main():
         print(f"   - {rsk}")
     print(f"Recommended Next Step: {pb.recommended_next_step}")
 
-    print_banner("5. Validation Result")
+    print_banner("6. Deterministic Validation Result")
     val = output.validation
     print(f"Status: {val.status}")
     print(f"• Pricing Grounded: {val.is_pricing_grounded}")
@@ -99,7 +103,7 @@ def main():
         for iss in val.issues:
             print(f"   - {iss}")
 
-    print_banner("6. Email Draft (DRAFT — NOT SENT)")
+    print_banner("7. Email Draft (DRAFT — NOT SENT)")
     email = output.email_draft
     print(f"Subject: {email.subject}")
     print(f"Watermark: [{email.watermark}]")
@@ -107,7 +111,7 @@ def main():
     print(email.body)
     print("-" * 40)
 
-    print_banner("7. Human Approval Gate")
+    print_banner("8. Human Approval Gate")
     print("🛑 STATUS: HUMAN APPROVAL REQUIRED")
     print("The proposal brief and email draft have been generated and validated.")
     print("NO EXTERNAL EMAIL OR ACTION HAS BEEN AUTOMATICALLY EXECUTED.")

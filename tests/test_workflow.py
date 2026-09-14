@@ -7,7 +7,7 @@ def workflow():
     return ProposalAgentWorkflow()
 
 def test_scenario_1_and_default_transcript(workflow):
-    """TEST 1 & Default: Normal transcript processing with ambiguity."""
+    """TEST 1: Normal transcript processing with ambiguity."""
     transcript_path = os.path.join(os.path.dirname(__file__), "..", "data", "sales_call_transcript.txt")
     with open(transcript_path, "r", encoding="utf-8") as f:
         transcript = f.read()
@@ -46,7 +46,6 @@ def test_scenario_4_no_matching_case_study(workflow):
     Prospect: I run Space Rocket Inc in aerospace manufacturing. Do you have a case study on aerospace rocket factory analytics?
     """
     result = workflow.run_workflow(transcript)
-    # Check that no fake aerospace case study is invented
     case_studies_str = " ".join(result.proposal_brief.relevant_case_studies).lower()
     assert "rocket" not in case_studies_str
     assert "aerospace" not in case_studies_str or "no matching" in case_studies_str or len(result.proposal_brief.relevant_case_studies) == 0 or "none" in case_studies_str

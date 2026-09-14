@@ -7,7 +7,7 @@ def validate_proposal(
     proposal_brief: ProposalBrief
 ) -> ValidationResult:
     """
-    Programmatic validation guardrail verifying that:
+    Programmatic deterministic validation guardrail verifying:
     1. Factual claims are grounded in transcript or business rules.
     2. Pricing was not hallucinated / guessed when parameters are missing.
     3. Timelines are not fabricated if ambiguous.
@@ -22,8 +22,6 @@ def validate_proposal(
     price_str = proposal_brief.pricing_estimate
     pricing_status = knowledge_lookup.pricing_status
 
-    # If open questions or missing details exist for key pricing drivers (e.g. CRM platform, scope)
-    # pricing must state "Pricing requires manual estimation."
     has_missing_pricing_params = any(
         "crm" in q.lower() or "platform" in q.lower() or "price" in q.lower() or "budget" in q.lower() or "scope" in q.lower()
         for q in requirements.open_questions
@@ -52,7 +50,6 @@ def validate_proposal(
             are_services_offered = False
             issues.append(f"Unsupported Service Flagged: Client requested '{service_match.service_name}' which is NOT offered by Northstar Digital.")
 
-    # Check if proposal brief mistakenly included an unsupported service in recommended_services
     for rec in proposal_brief.recommended_services:
         if not any(off in rec.lower() for off in offered_services_list):
             are_services_offered = False
@@ -62,7 +59,6 @@ def validate_proposal(
     case_study_valid = True
     for cs_match in knowledge_lookup.matched_case_studies:
         if not cs_match.found_matching_case_study:
-            # Verify proposal brief does not hallucinate a case study
             for cs_ref in proposal_brief.relevant_case_studies:
                 if "no matching case study" not in cs_ref.lower() and "none available" not in cs_ref.lower():
                     case_study_valid = False
@@ -74,8 +70,6 @@ def validate_proposal(
         missing_critical_info_flagged = False
         issues.append("Missing Info Violation: Transcript contains unresolved questions, but missing_critical_information in proposal brief is empty.")
 
-    # Status Determination
-    # Note: If unsupported services or missing info issues exist, or pricing needs manual estimation, status is NEEDS HUMAN REVIEW
     status = "NEEDS HUMAN REVIEW" if (issues or not is_pricing_grounded or not is_timeline_clear or len(proposal_brief.missing_critical_information) > 0) else "PASSED"
 
     return ValidationResult(

@@ -51,6 +51,11 @@ class ProposalBrief(BaseModel):
     risks: List[str]
     recommended_next_step: str
 
+class ProposalAnalysis(BaseModel):
+    requirements: RequirementExtraction
+    knowledge_lookup: BusinessKnowledgeLookupResult
+    proposal_brief: ProposalBrief
+
 class ValidationResult(BaseModel):
     status: str = Field(description="NEEDS HUMAN REVIEW or PASSED")
     is_pricing_grounded: bool
@@ -66,6 +71,7 @@ class EmailDraft(BaseModel):
     watermark: str = Field(default="DRAFT — NOT SENT")
 
 class WorkflowOutput(BaseModel):
+    execution_mode: str = Field(description="MODE: OPENAI AGENTS SDK or MODE: FALLBACK — OPENAI API UNAVAILABLE")
     requirements: RequirementExtraction
     knowledge_lookup: BusinessKnowledgeLookupResult
     proposal_brief: ProposalBrief

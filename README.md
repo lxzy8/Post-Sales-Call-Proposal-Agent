@@ -1,6 +1,6 @@
-# Post-Sales-Call Proposal Agent — AI Engineer Prototype
+# Post-Sales-Call Proposal Agent — OpenAI Agents SDK Prototype
 
-An operational workflow prototype for mid-market B2B service companies (50–300 employees) that converts unstructured sales call transcripts into grounded, verified proposal briefs and personalized follow-up email drafts.
+An operational workflow prototype for mid-market B2B service companies (50–300 employees) that converts unstructured sales call transcripts into grounded, verified proposal briefs and personalized follow-up email drafts using the **OpenAI Agents SDK**.
 
 ---
 
@@ -16,18 +16,18 @@ This delay causes sales momentum loss and leads to inconsistency in proposals.
 ---
 
 ## 2. Selected AI Capability
-**OpenAI Agents API & Agentic Workflow Execution**
-- Contextual Reasoning
-- Structured Output Validation (Schema-driven extraction)
-- Business Knowledge Lookup (Tool Use)
-- Multi-step Execution & Guardrail Enforcement
-- Human Approval Gate before any external action
+**OpenAI Agents API / Agents SDK (`agents`)**
+- `Agent`: Agent definition with instructions, tools, and `output_type=ProposalAnalysis`.
+- `Runner`: `Runner.run_sync()` execution loop managing tool selection and execution.
+- `@function_tool`: Model-invoked tools for business knowledge lookup (`get_service_details`, `get_case_studies`, `search_business_knowledge`).
+- Human Approval Gate before any external action.
 
 ---
 
 ## 3. Why the Pairing Makes Sense
 Sales call transcripts contain high context but high ambiguity. Standard AI models tend to hallucinate missing details (e.g., guessing prices, promising unsupported features).
-By pairing **OpenAI Agents API** structured outputs with **strict programmatic validation rules** and **internal business knowledge files**, the system delivers fast, structured proposal generation while guaranteeing zero hallucinated commitments or pricing.
+
+By pairing the **OpenAI Agents SDK** structured outputs with **deterministic programmatic validation rules** and **internal business knowledge files**, deterministic validation blocks unsupported pricing, services, timelines, and commitments from reaching the final draft without review.
 
 ---
 
@@ -36,15 +36,18 @@ By pairing **OpenAI Agents API** structured outputs with **strict programmatic v
 ```
 [ Sales Transcript ]
          ↓
-[ Requirement Extraction ]  ---> (Extract structured fields & quotes)
+[ OpenAI Agent + Runner.run_sync() ]
          ↓
-[ Business Knowledge Lookup ] ---> (Query services.md, case_studies.md, pricing_guidelines.md)
+   (Agent decides tool call)
+   ├──> [ get_service_details(...) ]
+   ├──> [ get_case_studies(...) ]
+   └──> [ search_business_knowledge(...) ]
          ↓
-[ Proposal Brief Generation ] ---> (Synthesize brief with knowns/unknowns)
+[ ProposalAnalysis (Structured Output) ]
          ↓
-[ Validation Guardrail ]     ---> (Verify groundedness, pricing rules, unsupported services)
+[ Deterministic Validation Guardrail ]
          ↓
-[ Follow-Up Email Draft ]    ---> (Personalized draft with watermark)
+[ Personalized Email Draft (DRAFT — NOT SENT) ]
          ↓
 [ 🛑 HUMAN APPROVAL REQUIRED ]
 ```
@@ -90,23 +93,24 @@ By pairing **OpenAI Agents API** structured outputs with **strict programmatic v
 
 ## 6. Setup & Execution
 
-### Setup
+### Setup & Pinned Dependencies
 ```bash
-# Clone repository and install dependencies
+# Install pinned dependencies
 pip install -r requirements.txt
 ```
 
-### Environment Variable
+### Environment Variables
 ```bash
 export OPENAI_API_KEY="sk-proj-..."
+export OPENAI_MODEL="gpt-4o"  # Optional, defaults to gpt-4o
 ```
 
-### Run Workflow
+### Run Workflow CLI
 ```bash
 python3 run.py
 ```
 
-### Run Tests
+### Run Test Suite
 ```bash
 PYTHONPATH=. python3 -m pytest
 ```
@@ -121,8 +125,8 @@ PYTHONPATH=. python3 -m pytest
 
 ---
 
-## 8. Guardrails & Failure Cases Tested
-The workflow undergoes rigorous validation testing across 6 critical operational scenarios (`tests/test_workflow.py`):
+## 8. Guardrails & Operational Scenarios
+The workflow undergoes deterministic validation across 6 critical operational scenarios (`tests/test_workflow.py`):
 
 | Test Scenario | Scenario Description | Expected & Verified Behavior |
 |---|---|---|
@@ -136,7 +140,7 @@ The workflow undergoes rigorous validation testing across 6 critical operational
 ---
 
 ## 9. Human Approval Gate
-The workflow **NEVER** automatically sends an email or interacts with external tools. Every execution terminates at:
+The workflow **NEVER** automatically sends an email or interacts with external email APIs. Every execution terminates at:
 ```
 🛑 STATUS: HUMAN APPROVAL REQUIRED
 The proposal brief and email draft have been generated and validated.
@@ -147,10 +151,10 @@ NO EXTERNAL EMAIL OR ACTION HAS BEEN AUTOMATICALLY EXECUTED.
 
 ## 10. Evidence / Screenshot Mapping (`evidence/`)
 - `01_input.png`: Sample sales transcript input.
-- `02_agent_execution.png`: Workflow execution start.
+- `02_agent_execution.png`: OpenAI Agents SDK `Runner.run_sync()` trace & execution mode.
 - `03_requirements.png`: Structured requirement extraction.
-- `04_knowledge_lookup.png`: Business knowledge lookup.
-- `05_validation.png`: Validation guardrail results.
+- `04_knowledge_lookup.png`: Business knowledge lookup & tool results.
+- `05_validation.png`: Deterministic validation guardrail output.
 - `06_proposal_brief.png`: Generated proposal brief.
 - `07_email_draft.png`: Personalized email draft marked `DRAFT — NOT SENT`.
 - `08_human_approval.png`: Explicit Human Approval Gate.
