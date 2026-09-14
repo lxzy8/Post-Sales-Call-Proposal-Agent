@@ -1,0 +1,21 @@
+[00:00:05] Sales Rep (Alex): Hi Sarah, thanks for joining today! I'm excited to learn more about Nexus Health Solutions and see how Northstar Digital might support your growth.
+[00:00:15] Prospect (Sarah Jenkins): Thanks Alex. Good to meet you. I'm the VP of Operations at Nexus Health Solutions. We're a 110-person healthcare consulting firm.
+[00:00:28] Alex: Great! To start off, what driven you to reach out to us today?
+[00:00:35] Sarah: Well, our current client intake and sales pipeline process is a chaotic mess. When a prospective client fills out a contact form or finishes a discovery call, everything is logged manually in spreadsheets by our business development reps. We end up losing track of leads, and writing follow-up proposals takes days.
+[00:01:00] Alex: That sounds like a significant bottleneck. What's the main goal you'd like to achieve?
+[00:01:08] Sarah: We want to streamline our entire lead pipeline. Specifically, we want automated lead capture from our website so inquiries immediately trigger notifications and drop into our sales pipeline. Also, we want to integrate our CRM so sales reps don't have to copy-paste info manually.
+[00:01:32] Alex: Got it. So lead capture automation and CRM integration are top priorities. Do you also need web analytics or a website redesign?
+[00:01:42] Sarah: Our website is actually okay for now, though we definitely need help tracking where leads are coming from. So web analytics tracking would be great too. Oh, and someone mentioned custom AI patient triage automation during an internal meeting—is that something you offer?
+[00:02:05] Alex: I'll double-check our service matrix on custom AI patient triage, but our core strength is digital workflow automation, CRM, and analytics. What CRM are you currently using, Sarah?
+[00:02:18] Sarah: We are currently evaluating whether to stay on our legacy system or migrate, but we haven't finalized which CRM system we'll be using for this rollout yet. We'll need to decide that soon.
+[00:02:35] Alex: Understood. How many BD reps or users will be using the system?
+[00:02:42] Sarah: About 15 sales and BD team members.
+[00:02:50] Alex: Great. What about timeline? When are you hoping to launch this?
+[00:02:55] Sarah: Ideally sometime Q3 or Q4, but we haven't locked down an exact target launch date yet because our leadership budget review is happening next month.
+[00:03:10] Alex: Make sense. Speaking of budget, do you have a target budget range allocated for this initiative?
+[00:03:18] Sarah: We know this will cost real money, probably somewhere in the mid five figures, but we don't have a fixed budget approved until after the review.
+[00:03:32] Alex: Who else is involved in the approval process?
+[00:03:38] Sarah: Myself, our Chief Commercial Officer Marcus Vance, and our IT Director David Chen. Marcus will need to approve the final proposal.
+[00:03:52] Alex: Excellent. To summarize: you're looking for lead capture automation, CRM integration (once the CRM platform is chosen), and web analytics implementation. You need a streamlined sales intake process to stop manual data entry and speed up proposal turnaround.
+[00:04:12] Sarah: Exactly. Can you send over a proposal brief and follow-up email outlining what this would look like and relevant case studies?
+[00:04:22] Alex: Absolutely Sarah! I'll compile a proposal package and follow up with you shortly.
