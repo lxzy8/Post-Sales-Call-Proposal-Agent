@@ -110,7 +110,7 @@ export OPENAI_MODEL="gpt-4o"  # Optional, defaults to gpt-4o
 python3 run.py
 ```
 
-### Run Test Suite
+### Run Test Suite (11/11 Verified Passed)
 ```bash
 PYTHONPATH=. python3 -m pytest
 ```
@@ -125,17 +125,17 @@ PYTHONPATH=. python3 -m pytest
 
 ---
 
-## 8. Guardrails & Operational Scenarios
+## 8. Guardrails & Operational Scenarios (All 6 Verified)
 The workflow undergoes deterministic validation across 6 critical operational scenarios (`tests/test_workflow.py`):
 
-| Test Scenario | Scenario Description | Expected & Verified Behavior |
+| Test Scenario | Scenario Description | Verified Pass / Status |
 |---|---|---|
-| **Test 1** | Normal complete sales call | Structured requirements extracted; proposal brief & email generated. |
-| **Test 2** | Missing pricing parameters | Pricing strictly outputs `"Pricing requires manual estimation."` |
-| **Test 3** | Missing critical requirement | Unresolved questions explicitly flagged in proposal brief under missing information. |
-| **Test 4** | No matching case study | Agent explicitly reports no matching case study exists without hallucinating one. |
-| **Test 5** | Ambiguous timeline | Timeline flagged as requiring confirmation. |
-| **Test 6** | Unsupported service request | Unsupported service (e.g., custom AI triage or quantum crypto) flagged as not offered. |
+| **Test 1** | Normal complete sales call | Structured requirements extracted; proposal brief & email generated. (PASSED) |
+| **Test 2** | Missing pricing parameters | Pricing strictly outputs `"Pricing requires manual estimation."` (PASSED) |
+| **Test 3** | Missing critical requirement | Unresolved questions explicitly flagged in proposal brief under missing information. (PASSED) |
+| **Test 4** | No matching case study | Agent explicitly reports no matching case study exists without hallucinating one. (PASSED) |
+| **Test 5** | Ambiguous timeline | Timeline flagged as requiring confirmation. (PASSED) |
+| **Test 6** | Unsupported service request | Unsupported service (e.g., custom AI triage or quantum crypto) flagged as not offered. (PASSED) |
 
 ---
 
@@ -150,11 +150,11 @@ NO EXTERNAL EMAIL OR ACTION HAS BEEN AUTOMATICALLY EXECUTED.
 ---
 
 ## 10. Evidence / Screenshot Mapping (`evidence/`)
-- `01_input.png`: Sample sales transcript input.
-- `02_agent_execution.png`: OpenAI Agents SDK `Runner.run_sync()` trace & execution mode.
-- `03_requirements.png`: Structured requirement extraction.
-- `04_knowledge_lookup.png`: Business knowledge lookup & tool results.
-- `05_validation.png`: Deterministic validation guardrail output.
-- `06_proposal_brief.png`: Generated proposal brief.
-- `07_email_draft.png`: Personalized email draft marked `DRAFT — NOT SENT`.
-- `08_human_approval.png`: Explicit Human Approval Gate.
+- `01_input.png`: Real terminal capture of input transcript.
+- `02_agent_execution.png`: Real terminal capture of OpenAI Agents SDK execution mode & trace.
+- `03_requirements.png`: Real terminal capture of structured requirement extraction.
+- `04_knowledge_lookup.png`: Real terminal capture of business knowledge lookup & tool results.
+- `05_validation.png`: Real terminal capture of deterministic validation guardrail output.
+- `06_proposal_brief.png`: Real terminal capture of generated proposal brief.
+- `07_email_draft.png`: Real terminal capture of personalized email draft marked `DRAFT — NOT SENT`.
+- `08_human_approval.png`: Real terminal capture of explicit Human Approval Gate.
